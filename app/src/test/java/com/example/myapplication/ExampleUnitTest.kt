@@ -1,4 +1,4 @@
-package com.example.myapplication
+package br.com.matheus.knucklebones
 
 import org.junit.Test
 

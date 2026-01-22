@@ -1,4 +1,4 @@
-package com.example.myapplication
+package br.com.matheus.knucklebones
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.myapplication.ui.theme.*
+import br.com.matheus.knucklebones.ui.theme.*
 import kotlinx.coroutines.delay
 
 @Composable

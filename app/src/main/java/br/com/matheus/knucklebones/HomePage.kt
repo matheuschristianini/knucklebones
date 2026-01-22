@@ -1,4 +1,4 @@
-package com.example.myapplication
+package br.com.matheus.knucklebones
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.example.myapplication.ui.theme.*
+import br.com.matheus.knucklebones.ui.theme.*
 
 @Composable
 fun HomePage(onStartGame: (Boolean, Difficulty?) -> Unit) {

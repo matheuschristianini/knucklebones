@@ -1,4 +1,4 @@
-package com.example.myapplication
+package br.com.matheus.knucklebones
 
 import android.content.Context
 import androidx.compose.runtime.getValue

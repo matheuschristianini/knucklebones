@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "br.com.matheus.knucklebones"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.myapplication"
+        applicationId = "br.com.matheus.knucklebones"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
