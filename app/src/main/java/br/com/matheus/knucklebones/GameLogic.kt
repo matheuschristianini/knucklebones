@@ -122,7 +122,7 @@ class KnucklebonesViewModel : ViewModel() {
 
         val isGameOver = newP1Board.isFull() || newP2Board.isFull()
         
-        if (isGameOver && state.vsAI && currentPlayer == Player.Player1 && context != null) {
+        if (isGameOver && state.vsAI && context != null) {
             val p1Score = newP1Board.calculateTotalScore()
             val p2Score = newP2Board.calculateTotalScore()
             if (p1Score > p2Score) {
