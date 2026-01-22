@@ -27,6 +27,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun KnucklebonesGame(
     vsAI: Boolean,
+    isNearby: Boolean = false,
+    isHost: Boolean = true,
     difficulty: Difficulty,
     onBackToHome: () -> Unit,
     viewModel: KnucklebonesViewModel = viewModel()
@@ -34,9 +36,32 @@ fun KnucklebonesGame(
     val state = viewModel.state
     var showExitDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    
+    val nearbyManager = remember { if (isNearby) NearbyManager(context) else null }
+    val receivedMessage by nearbyManager?.receivedMessage?.collectAsState() ?: remember { mutableStateOf(null) }
 
-    LaunchedEffect(vsAI, difficulty) {
-        viewModel.initGame(vsAI, difficulty)
+    LaunchedEffect(vsAI, difficulty, isNearby, isHost) {
+        viewModel.initGame(vsAI, difficulty, isNearby, isHost)
+        
+        if (isNearby) {
+            viewModel.setOnMovePerformed { col, roll ->
+                nearbyManager?.sendMessage("$col:$roll")
+            }
+        }
+    }
+
+    LaunchedEffect(receivedMessage) {
+        receivedMessage?.let { msg ->
+            val parts = msg.split(":")
+            if (parts.size == 2) {
+                val col = parts[0].toIntOrNull()
+                val roll = parts[1].toIntOrNull()
+                if (col != null && roll != null) {
+                    viewModel.receiveRemoteMove(col, roll)
+                }
+            }
+            nearbyManager?.clearReceivedMessage()
+        }
     }
 
     LaunchedEffect(state.currentPlayer, state.gameOver) {
@@ -55,6 +80,7 @@ fun KnucklebonesGame(
             confirmButton = {
                 TextButton(onClick = {
                     showExitDialog = false
+                    nearbyManager?.disconnect()
                     onBackToHome()
                 }) {
                     Text("Yes", color = RichBrown, fontWeight = FontWeight.Bold)
@@ -87,12 +113,19 @@ fun KnucklebonesGame(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Player 2 Area (Top - Opponent/AI)
+            // Player 2 Area (Top - Opponent/AI/Remote)
+            val p2Label = when {
+                vsAI -> "AI (${state.difficulty})"
+                isNearby -> if (isHost) "REMOTE PLAYER" else "YOU"
+                else -> "PLAYER 2"
+            }
+            val isP2Local = !vsAI && (!isNearby || !isHost)
+
             PlayerArea(
-                playerLabel = if (vsAI) "AI (${state.difficulty})" else "PLAYER 2",
+                playerLabel = p2Label,
                 board = state.player2Board,
                 isCurrentPlayer = state.currentPlayer == Player.Player2,
-                onColumnClick = { if (!vsAI && state.currentPlayer == Player.Player2) viewModel.placeDie(it, context) },
+                onColumnClick = { if (isP2Local && state.currentPlayer == Player.Player2) viewModel.placeDie(it, context) },
                 reverse = true,
                 themeColor = MediumBrown
             )
@@ -103,30 +136,41 @@ fun KnucklebonesGame(
                     val p1Score = state.player1Board.calculateTotalScore()
                     val p2Score = state.player2Board.calculateTotalScore()
                     val resultText = when {
-                        p1Score > p2Score -> "VICTORY!"
-                        p2Score > p1Score -> if (vsAI) "AI WINS..." else "PLAYER 2 WINS!"
+                        p1Score > p2Score -> if (isNearby && !isHost) "REMOTE WINS..." else "VICTORY!"
+                        p2Score > p1Score -> if (vsAI) "AI WINS..." else if (isNearby && isHost) "REMOTE WINS..." else "PLAYER 2 WINS!"
                         else -> "DRAW!"
                     }
                     Text(resultText, fontSize = 36.sp, fontWeight = FontWeight.Black, color = GoldBrown)
                     Text("Score: $p1Score - $p2Score", fontSize = 20.sp, color = LightCream)
                     Row(modifier = Modifier.padding(top = 16.dp)) {
                         Button(
-                            onClick = { viewModel.resetGame() },
+                            onClick = { 
+                                viewModel.resetGame()
+                                // In nearby, maybe send a reset signal? For now just reset local.
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = RichBrown, contentColor = Cream)
                         ) {
                             Text("REMATCH")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         OutlinedButton(
-                            onClick = onBackToHome,
+                            onClick = {
+                                nearbyManager?.disconnect()
+                                onBackToHome()
+                            },
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(RichBrown))
                         ) {
                             Text("HOME", color = Cream)
                         }
                     }
                 } else {
+                    val turnText = when {
+                        state.currentPlayer == Player.Player1 -> if (isNearby && !isHost) "REMOTE TURN" else "YOUR TURN"
+                        state.currentPlayer == Player.Player2 -> if (isNearby && isHost) "REMOTE TURN" else if (vsAI) "AI THINKING..." else "PLAYER 2 TURN"
+                        else -> ""
+                    }
                     Text(
-                        text = if (state.currentPlayer == Player.Player1) "YOUR TURN" else if (vsAI) "AI THINKING..." else "PLAYER 2 TURN",
+                        text = turnText,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (state.currentPlayer == Player.Player1) GoldBrown else MediumBrown
@@ -142,12 +186,18 @@ fun KnucklebonesGame(
                 }
             }
 
-            // Player 1 Area (Bottom - You)
+            // Player 1 Area (Bottom - You/Remote Host)
+            val p1Label = when {
+                isNearby -> if (isHost) "YOU" else "REMOTE PLAYER"
+                else -> "YOU"
+            }
+            val isP1Local = !isNearby || isHost
+
             PlayerArea(
-                playerLabel = "YOU",
+                playerLabel = p1Label,
                 board = state.player1Board,
                 isCurrentPlayer = state.currentPlayer == Player.Player1,
-                onColumnClick = { if (state.currentPlayer == Player.Player1) viewModel.placeDie(it, context) },
+                onColumnClick = { if (isP1Local && state.currentPlayer == Player.Player1) viewModel.placeDie(it, context) },
                 reverse = false,
                 themeColor = GoldBrown
             )
@@ -261,7 +311,6 @@ fun DieView(
         contentAlignment = Alignment.Center
     ) {
         if (value > 0) {
-            // Aged shadow effect
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(
                     color = shadowColor.copy(alpha = 0.3f),

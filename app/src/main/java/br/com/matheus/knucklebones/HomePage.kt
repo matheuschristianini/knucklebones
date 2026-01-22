@@ -25,14 +25,16 @@ import androidx.core.content.ContextCompat
 import br.com.matheus.knucklebones.ui.theme.*
 
 @Composable
-fun HomePage(onStartGame: (Boolean, Difficulty?) -> Unit) {
+fun HomePage(
+    onStartGame: (Boolean, Difficulty?) -> Unit,
+    onNearbyClick: () -> Unit
+) {
     val context = LocalContext.current
     var showDifficultySelection by remember { mutableStateOf(false) }
     
     val prefs = remember { context.getSharedPreferences("game_prefs", Context.MODE_PRIVATE) }
     val maxUnlocked = prefs.getInt("max_unlocked_difficulty", 0)
 
-    // Load the mipmap icon and convert it to a Bitmap at runtime to avoid crashes
     val iconBitmap = remember {
         val drawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
         drawable?.let {
@@ -62,12 +64,12 @@ fun HomePage(onStartGame: (Boolean, Difficulty?) -> Unit) {
                     bitmap = it,
                     contentDescription = "Knucklebones Icon",
                     modifier = Modifier
-                        .size(160.dp)
+                        .size(120.dp)
                         .clip(CircleShape)
                 )
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Text(
                 text = "KNUCKLEBONES",
@@ -82,31 +84,36 @@ fun HomePage(onStartGame: (Boolean, Difficulty?) -> Unit) {
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = LightCream,
-                modifier = Modifier.padding(bottom = 48.dp)
+                modifier = Modifier.padding(bottom = 32.dp)
             )
             
             Button(
                 onClick = { onStartGame(false, null) },
-                modifier = Modifier.fillMaxWidth().height(64.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RichBrown,
-                    contentColor = Cream
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = RichBrown, contentColor = Cream)
             ) {
-                Text("PLAYER VS PLAYER", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("LOCAL PVP", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = onNearbyClick,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = DarkGreen, contentColor = Cream)
+            ) {
+                Text("NEARBY MULTIPLAYER", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
             
             Button(
                 onClick = { showDifficultySelection = true },
-                modifier = Modifier.fillMaxWidth().height(64.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = DarkerBrown,
-                    contentColor = Cream
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = DarkerBrown, contentColor = Cream)
             ) {
                 Text("PLAYER VS AI", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }

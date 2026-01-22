@@ -55,6 +55,8 @@ data class GameState(
     val currentRoll: Int = 1,
     val gameOver: Boolean = false,
     val vsAI: Boolean = false,
+    val isNearbyMode: Boolean = false,
+    val isHost: Boolean = true,
     val difficulty: Difficulty = Difficulty.Easy,
     val diceWeight: Map<Int, Int> = mapOf(1 to 100, 2 to 100, 3 to 100, 4 to 100, 5 to 100, 6 to 100)
 )
@@ -63,17 +65,25 @@ class KnucklebonesViewModel : ViewModel() {
     var state by mutableStateOf(GameState())
         private set
 
+    private var onMovePerformed: ((Int, Int) -> Unit)? = null
+
     init {
         state = state.copy(currentRoll = rollWeightedDie(state.diceWeight))
     }
 
-    fun initGame(vsAI: Boolean, difficulty: Difficulty = Difficulty.Easy) {
+    fun initGame(vsAI: Boolean, difficulty: Difficulty = Difficulty.Easy, isNearbyMode: Boolean = false, isHost: Boolean = true) {
         val initialWeights = mapOf(1 to 100, 2 to 100, 3 to 100, 4 to 100, 5 to 100, 6 to 100)
         state = GameState(
             vsAI = vsAI, 
             difficulty = difficulty,
+            isNearbyMode = isNearbyMode,
+            isHost = isHost,
             diceWeight = initialWeights
         ).copy(currentRoll = rollWeightedDie(initialWeights))
+    }
+
+    fun setOnMovePerformed(callback: (Int, Int) -> Unit) {
+        onMovePerformed = callback
     }
 
     private fun rollWeightedDie(weights: Map<Int, Int>): Int {
@@ -98,14 +108,25 @@ class KnucklebonesViewModel : ViewModel() {
         return newWeights
     }
 
-    fun placeDie(colIndex: Int, context: Context? = null) {
+    fun placeDie(colIndex: Int, context: Context? = null, isRemote: Boolean = false) {
         if (state.gameOver) return
         
+        // If it's nearby mode, only allow the current player to move locally
+        if (state.isNearbyMode && !isRemote) {
+            val myPlayer = if (state.isHost) Player.Player1 else Player.Player2
+            if (state.currentPlayer != myPlayer) return
+        }
+
         val currentPlayer = state.currentPlayer
         val currentRoll = state.currentRoll
         
         val ownBoard = if (currentPlayer == Player.Player1) state.player1Board else state.player2Board
         if (ownBoard.isColumnFull(colIndex)) return
+
+        // Notify remote about the move before state updates if it's a local move in nearby mode
+        if (state.isNearbyMode && !isRemote) {
+            onMovePerformed?.invoke(colIndex, currentRoll)
+        }
 
         val nextWeights = getUpdatedWeights(currentRoll, state.diceWeight)
 
@@ -138,6 +159,12 @@ class KnucklebonesViewModel : ViewModel() {
             currentRoll = if (isGameOver) 0 else rollWeightedDie(nextWeights),
             gameOver = isGameOver
         )
+    }
+
+    fun receiveRemoteMove(colIndex: Int, dieValue: Int) {
+        // Force the roll value to match what the remote sent, then place it
+        state = state.copy(currentRoll = dieValue)
+        placeDie(colIndex, isRemote = true)
     }
 
     private fun unlockNextDifficulty(context: Context, currentDifficulty: Difficulty) {
@@ -182,10 +209,14 @@ class KnucklebonesViewModel : ViewModel() {
     fun resetGame() {
         val difficulty = state.difficulty
         val vsAI = state.vsAI
+        val isNearbyMode = state.isNearbyMode
+        val isHost = state.isHost
         val initialWeights = mapOf(1 to 100, 2 to 100, 3 to 100, 4 to 100, 5 to 100, 6 to 100)
         state = GameState(
             vsAI = vsAI, 
             difficulty = difficulty,
+            isNearbyMode = isNearbyMode,
+            isHost = isHost,
             diceWeight = initialWeights
         ).copy(currentRoll = rollWeightedDie(initialWeights))
     }
